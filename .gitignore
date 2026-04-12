@@ -1,7 +1,6 @@
-# ==============================================================================
 # Java & Maven Artifacts
 # Do not commit compiled code or build directories.
-# ==============================================================================
+
 target/
 *.class
 *.jar
@@ -22,10 +21,10 @@ buildNumber.properties
 # Ignore the Maven wrapper jar, but keep the wrapper scripts (mvnw, mvnw.cmd)
 .mvn/wrapper/maven-wrapper.jar
 
-# ==============================================================================
+
 # Integrated Development Environment (IDE) Files
 # Developers use different IDEs; keep local configurations out of source control.
-# ==============================================================================
+
 # IntelliJ IDEA
 .idea/
 *.iml
@@ -45,10 +44,10 @@ out/
 # Visual Studio Code
 .vscode/
 
-# ==============================================================================
+
 # Operating System Files
 # Prevent OS-specific thumbnail caches and directory settings from merging.
-# ==============================================================================
+
 # macOS
 .DS_Store
 .AppleDouble
@@ -59,10 +58,10 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# ==============================================================================
+
 # Security & Secrets (DevSecOps Core)
 # NEVER commit credentials, private keys, or local environment overrides.
-# ==============================================================================
+
 *.pem
 *.key
 .env
