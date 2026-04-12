@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>DevSecOpsGuru</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            border-top: 5px solid #2980b9;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .data-row {
+            font-size: 1.2rem;
+            color: #34495e;
+            margin: 15px 0;
+            padding: 10px;
+            background: #ecf0f1;
+            border-radius: 5px;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Welcome to DevSecOpsGuru.in</h1>
+        
+        <div class="data-row">
+            Current Date & Time: <br>
+            <span class="highlight" th:text="${dateTime}">Loading...</span>
+        </div>
+        
+        <div class="data-row">
+            Served from Hostname: <br>
+            <span class="highlight" th:text="${hostname}">Loading...</span>
+        </div>
+    </div>
+
+</body>
+</html>
