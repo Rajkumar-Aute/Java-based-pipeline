@@ -1,45 +1,23 @@
-# ==============================================================================
-# Workflow Name: Java CI/CD Enterprise Pipeline
-# Purpose: Defines an automated DevSecOps lifecycle for a Java (Maven) application.
-# It integrates Continuous Integration (CI), Continuous Delivery (CD), and 
-# Continuous Security (Sec) into a single declarative pipeline.
-# ==============================================================================
-name: Java CI/CD Enterprise Pipeline
-
-# ------------------------------------------------------------------------------
-# 1. TRIGGERS (on:)
-# Defines the events that will cause this pipeline to execute.
-# ------------------------------------------------------------------------------
+name: Java CI Enterprise Pipeline
+# Defines the events that will cause this pipeline to execute. 
+  # Triggers can be based on code changes, scheduled times, or manual invocation.
 on:
-  # Triggers the pipeline automatically whenever code is merged or pushed directly 
-  # to the 'main' branch.
+  # Triggers the pipeline automatically whenever code is merged or pushed directly to the 'main' branch.
   push:
     branches: [ "main" ]
-  
-  # Triggers the pipeline when a Pull Request is opened or updated against 
-  # the 'main' branch. This enforces "shift-left" security and testing before code is merged.
   pull_request:
     branches: [ "main" ]
 
-# ------------------------------------------------------------------------------
-# 2. JOBS (jobs:)
-# Defines the independent units of work. By default, jobs run in parallel, 
-# but we will use the 'needs' keyword to sequence them into a pipeline structure.
-# ------------------------------------------------------------------------------
+# Jobs are the core building blocks of our CI/CD pipeline, representing distinct stages like Build, Test, Security Scanning, and Dockerization.
+# Defines the independent units of work. By default, jobs run in parallel, but we will use the 'needs' keyword to sequence them into a pipeline structure.
 jobs:
-
-  # ============================================================================
-  # JOB 1: Continuous Integration (Build & Test)
+  # job 1: Continuous Integration (Build, Test and Security)
   # Goal: Ensure the application compiles successfully and passes all unit tests.
-  # ============================================================================
-  build-and-test:
-    # Specifies the runner environment. 'ubuntu-latest' provides a clean, 
-    # ephemeral Linux virtual machine hosted by GitHub.
+  build-test-and-secure:
+    # Specifies the runner environment. 'ubuntu-latest' provides a clean, ephemeral Linux virtual machine hosted by GitHub.
     runs-on: ubuntu-latest
-    
     steps:
     # Step 1.1: Fetch the source code from the repository into the runner environment.
-    # We use the official 'checkout' action.
     - name: Checkout Code
       uses: actions/checkout@v4
 
@@ -57,85 +35,70 @@ jobs:
       run: mvn -B package --file pom.xml
 
     # Step 1.4: Execute Unit Tests to verify code logic.
-    # If a test fails, the pipeline halts immediately, preventing broken code from advancing.
+    # If a test fails, the pipeline halts immediately, preventing broken code from next stages.
     - name: Run Unit Tests
       run: mvn test
 
-    # Step 1.5: Preserve the compiled binary.
-    # The runner is destroyed after the job finishes. We upload the generated .jar file 
+  # Goal: Identify vulnerabilities and code smells before deployment.
+    # Step 1.5: Software Composition Analysis (SCA).
+    # Scans the pom.xml for open-source dependencies (third-party libraries) with known CVEs.
+    # This is a critical DevSecOps practice to prevent supply chain attacks.
+# disabled scan due to unavailability of snyk and sonar tokens
+    # - name: Dependency Check (Snyk or OWASP)
+    #   uses: snyk/actions/maven@master
+    #   env:
+    #     # Securely injects the Snyk API token stored in GitHub Repository Secrets.
+    #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    # # Step 1.6: Static Application Security Testing (SAST) & Code Quality.
+    # # Analyzes the raw source code for bugs, vulnerabilities (like SQL injection), and technical debt.
+    # - name: Static Analysis (SonarCloud)
+    #   run: mvn sonar:sonar -Dsonar.projectKey=my_project -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+    # Step 1.7: Preserve the compiled binary.
+    # The runner is destroyed after the job finishes. We upload the generated .jar file as an artifact to GitHub Actions storage,
     # so it can be passed to subsequent jobs (like Dockerization) without rebuilding.
+    # This actions not requires if we are using same runner for all the jobs.
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: java-app-package       # The identifier used to retrieve this artifact later.
         path: target/*.jar           # The file path to grab the compiled Java Archive.
-
-  # ============================================================================
-  # JOB 2: Continuous Security & Quality (DevSecOps Core)
-  # Goal: Identify vulnerabilities and code smells before deployment.
-  # ============================================================================
-  security-and-quality:
-    # The 'needs' directive creates a dependency map. This job will ONLY start 
-    # if 'build-and-test' finishes successfully.
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    
-    steps:
-    # Step 2.1: We must checkout the code again because this job runs on a brand new, 
-    # isolated virtual machine runner.
-    - name: Checkout Code
-      uses: actions/checkout@v4
-
-    # Step 2.2: Software Composition Analysis (SCA).
-    # Scans the pom.xml for open-source dependencies (third-party libraries) with known CVEs.
-    # This is a critical DevSecOps practice to prevent supply chain attacks.
-    - name: Dependency Check (Snyk or OWASP)
-      uses: snyk/actions/maven@master
-      env:
-        # Securely injects the Snyk API token stored in GitHub Repository Secrets.
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-    # Step 2.3: Static Application Security Testing (SAST) & Code Quality.
-    # Analyzes the raw source code for bugs, vulnerabilities (like SQL injection), and technical debt.
-    - name: Static Analysis (SonarCloud)
-      run: mvn sonar:sonar -Dsonar.projectKey=my_project -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
-  # ============================================================================
-  # JOB 3: Continuous Delivery (Containerization)
+  # JOB 2: Continuous Delivery (Containerization)
   # Goal: Package the tested, secure application into an immutable Docker image 
   # and push it to a container registry.
-  # ============================================================================
+
   dockerize:
-    # This job waits for the security scans to pass. If vulnerabilities are found, 
-    # the pipeline breaks, and a vulnerable image is never built.
-    needs: security-and-quality
-    
     # Conditional execution: We only want to build and push Docker images for 
     # code that is actually merged into the 'main' branch, not for active Pull Requests.
+    needs: build-test-and-secure
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     steps:
-    # Step 3.1: Retrieve the .jar file we compiled in Job 1.
-    # This ensures we are containerizing the exact binary that passed our tests, 
-    # adhering to the principle of immutability.
+    # Step 2.1: Retrieve the .jar file we compiled in Job 1.
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
     - name: Download Artifact
       uses: actions/download-artifact@v4
       with:
-        name: java-app-package       # Matches the name used in the upload step.
+        name: java-app-package
+        path: target/
 
-    # Step 3.2: Build and push the Docker image.
+    # Step 2.2: Build and push the Docker image.
     - name: Build & Push Docker Image
       run: |
-        # 1. Build the image. 
-        # We tag (-t) the image using the unique GitHub commit SHA (${{ github.sha }}).
-        # This provides perfect traceability from the container back to the exact code commit.
-        docker build -t my-repo/java-app:${{ github.sha }} .
+        # This creates one image, with multiple searchable labels.
+        docker build \
+          -t rajkumaraute/java-base-app:${{ github.sha }} \
+          -t rajkumaraute/java-base-app:${{ github.run_number }} \
+          .
         
-        # 2. Authenticate with the Docker Registry (e.g., DockerHub, AWS ECR, ACR).
-        # We pipe the password into 'docker login' via standard input for security, 
-        # preventing the password from appearing in process lists or logs.
+        # 2. Authenticate with Docker Hub. 
+        # We use GitHub Secrets to securely store and access Docker Hub credentials.
         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
         
-        # 3. Push the immutable, tagged image to the remote registry, ready for deployment (e.g., to Kubernetes/EKS).
-        docker push my-repo/java-app:${{ github.sha }}
+        # 3. Push both tags to Docker Hub explicitly.
+        docker push rajkumaraute/java-base-app:${{ github.sha }}
+        docker push rajkumaraute/java-base-app:${{ github.run_number }}
